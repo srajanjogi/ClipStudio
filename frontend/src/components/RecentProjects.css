@@ -1,0 +1,103 @@
+.recent-projects {
+  position: absolute;
+  bottom: 40px;
+  right: 40px;
+  background-color: transparent;
+  min-width: 280px;
+}
+
+.recent-projects-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.recent-projects-title {
+  font-size: 18px;
+  font-weight: 700;
+  color: #000000;
+  margin: 0;
+}
+
+.view-all-link {
+  font-size: 14px;
+  color: #000000;
+  text-decoration: none;
+  cursor: pointer;
+  transition: opacity 0.2s ease;
+}
+
+.view-all-link:hover {
+  opacity: 0.7;
+}
+
+.projects-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.project-card {
+  background-color: #f5f5f5;
+  border-radius: 8px;
+  padding: 16px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  min-width: 200px;
+}
+
+.project-card:hover {
+  background-color: #eeeeee;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.12);
+}
+
+.project-play-icon {
+  font-size: 24px;
+  color: #000000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  flex-shrink: 0;
+}
+
+.project-info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1;
+  min-width: 0;
+}
+
+.project-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: #000000;
+  margin: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.project-date {
+  font-size: 12px;
+  color: #666666;
+  margin: 0;
+}
+
+@media (max-width: 1024px) {
+  .recent-projects {
+    position: relative;
+    bottom: auto;
+    right: auto;
+    margin-top: 60px;
+    width: 100%;
+    max-width: 700px;
+  }
+}
