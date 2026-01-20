@@ -1,15 +1,14 @@
 import { app, BrowserWindow, ipcMain, dialog, protocol } from 'electron';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
-import { spawn } from 'child_process';
-import { tmpdir } from 'os';
-import { existsSync, unlinkSync } from 'fs';
+import { registerCutVideoHandlers, cleanupCutVideoTempFiles } from './cutVideo.js';
+import { registerMergeVideosHandlers, cleanupMergeVideosTempFiles } from './mergeVideos.js';
+import { registerSpeedChangeHandlers, cleanupSpeedTempFiles } from './speedChange.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
 let mainWindow;
-const tempPreviewFiles = new Set(); // Track temporary preview files for cleanup
 
 // Register custom protocol scheme before app is ready
 if (process.defaultApp || /[\\/]electron-prebuilt[\\/]/.test(process.execPath) || /[\\/]electron[\\/]/.test(process.execPath)) {
@@ -103,187 +102,20 @@ ipcMain.handle('get-file-url', async (event, filePath) => {
   return { url };
 });
 
-// IPC handler for exporting a cut / trimmed video using ffmpeg
-ipcMain.handle('export-cut-video', async (event, { inputPath, start, end, duration }) => {
-  if (!inputPath || start === undefined || start === null) {
-    return { canceled: true, error: 'Missing required parameters' };
-  }
+// Register all IPC handlers for the Cut Video feature
+registerCutVideoHandlers(ipcMain, dialog);
 
-  // Ask user where to save the trimmed video
-  const { canceled, filePath } = await dialog.showSaveDialog({
-    title: 'Export Trimmed Video',
-    defaultPath: 'trimmed-video.mp4',
-    filters: [{ name: 'MP4 Video', extensions: ['mp4'] }],
-  });
+// Register all IPC handlers for the Merge Videos feature
+registerMergeVideosHandlers(ipcMain, dialog);
 
-  if (canceled || !filePath) {
-    return { canceled: true };
-  }
-
-  const startSeconds = typeof start === 'number' ? start : parseFloat(start);
-  let segDuration = duration;
-  if (segDuration === undefined && end !== undefined) {
-    const endSeconds = typeof end === 'number' ? end : parseFloat(end);
-    segDuration = endSeconds - startSeconds;
-  }
-
-  if (!segDuration || !isFinite(segDuration) || segDuration <= 0) {
-    return { canceled: true, error: 'Invalid segment duration' };
-  }
-
-  // Build ffmpeg command with re-encoding for proper video output:
-  //   ffmpeg -y -ss START -i inputPath -t DURATION -c:v libx264 -c:a aac -preset medium -crf 23 outputPath
-  // Using re-encoding instead of copy to ensure proper playback
-  const ffmpegArgs = [
-    '-y',                    // Overwrite output file
-    '-ss',
-    String(startSeconds),     // Start time
-    '-i',
-    inputPath,               // Input file
-    '-t',
-    String(segDuration),      // Duration
-    '-c:v',
-    'libx264',               // Video codec (H.264)
-    '-preset',
-    'medium',                // Encoding speed/quality balance
-    '-crf',
-    '23',                    // Quality (18-28, lower is better quality)
-    '-c:a',
-    'aac',                   // Audio codec
-    '-b:a',
-    '192k',                  // Audio bitrate
-    '-movflags',
-    '+faststart',            // Enable fast start for web playback
-    filePath,                // Output file
-  ];
-
-  // Assume ffmpeg is available on PATH. You can change this to an absolute path if needed.
-  const ffmpegProcess = spawn('ffmpeg', ffmpegArgs);
-
-  return await new Promise((resolve) => {
-    let stderr = '';
-
-    ffmpegProcess.stderr.on('data', (data) => {
-      stderr += data.toString();
-    });
-
-    ffmpegProcess.on('error', (err) => {
-      resolve({ canceled: false, error: err.message });
-    });
-
-    ffmpegProcess.on('close', (code) => {
-      if (code === 0) {
-        resolve({ canceled: false, filePath });
-      } else {
-        resolve({
-          canceled: false,
-          error: `ffmpeg exited with code ${code}\n${stderr}`,
-        });
-      }
-    });
-  });
-});
-
-// IPC handler for creating a temporary trimmed video for preview
-ipcMain.handle('create-preview-video', async (event, { inputPath, start, end, duration }) => {
-  if (!inputPath || start === undefined || start === null) {
-    return { error: 'Missing required parameters' };
-  }
-
-  const startSeconds = typeof start === 'number' ? start : parseFloat(start);
-  let segDuration = duration;
-  if (segDuration === undefined && end !== undefined) {
-    const endSeconds = typeof end === 'number' ? end : parseFloat(end);
-    segDuration = endSeconds - startSeconds;
-  }
-
-  if (!segDuration || !isFinite(segDuration) || segDuration <= 0) {
-    return { error: 'Invalid segment duration' };
-  }
-
-  // Create temporary file path
-  const tempDir = tmpdir();
-  const tempFilePath = join(tempDir, `clipstudio-preview-${Date.now()}-${Math.random().toString(36).substring(7)}.mp4`);
-
-  // Build ffmpeg command to create trimmed preview with re-encoding
-  // Using faster encoding for preview to reduce wait time
-  const ffmpegArgs = [
-    '-y',                    // Overwrite output file
-    '-ss',
-    String(startSeconds),     // Start time
-    '-i',
-    inputPath,               // Input file
-    '-t',
-    String(segDuration),      // Duration
-    '-c:v',
-    'libx264',               // Video codec (H.264)
-    '-preset',
-    'ultrafast',             // Fast encoding for preview
-    '-crf',
-    '28',                    // Slightly lower quality for faster encoding
-    '-c:a',
-    'aac',                   // Audio codec
-    '-b:a',
-    '128k',                  // Audio bitrate (lower for preview)
-    '-movflags',
-    '+faststart',            // Enable fast start for web playback
-    tempFilePath,            // Output file
-  ];
-
-  const ffmpegProcess = spawn('ffmpeg', ffmpegArgs);
-
-  return await new Promise((resolve) => {
-    let stderr = '';
-
-    ffmpegProcess.stderr.on('data', (data) => {
-      stderr += data.toString();
-    });
-
-    ffmpegProcess.on('error', (err) => {
-      resolve({ error: err.message });
-    });
-
-    ffmpegProcess.on('close', (code) => {
-      if (code === 0) {
-        tempPreviewFiles.add(tempFilePath);
-        resolve({ filePath: tempFilePath });
-      } else {
-        resolve({
-          error: `ffmpeg exited with code ${code}\n${stderr}`,
-        });
-      }
-    });
-  });
-});
-
-// IPC handler for cleaning up temporary preview files
-ipcMain.handle('cleanup-preview-video', async (event, { filePath }) => {
-  if (filePath && tempPreviewFiles.has(filePath)) {
-    try {
-      if (existsSync(filePath)) {
-        unlinkSync(filePath);
-      }
-      tempPreviewFiles.delete(filePath);
-      return { success: true };
-    } catch (err) {
-      return { error: err.message };
-    }
-  }
-  return { success: true };
-});
+// Register IPC handlers for the Change Playback Speed feature
+registerSpeedChangeHandlers(ipcMain, dialog);
 
 // Cleanup all temp files on app exit
 app.on('before-quit', () => {
-  tempPreviewFiles.forEach((filePath) => {
-    try {
-      if (existsSync(filePath)) {
-        unlinkSync(filePath);
-      }
-    } catch (err) {
-      console.error('Error cleaning up temp file:', err);
-    }
-  });
-  tempPreviewFiles.clear();
+  cleanupCutVideoTempFiles();
+  cleanupMergeVideosTempFiles();
+  cleanupSpeedTempFiles();
 });
 
 app.whenReady().then(() => {
