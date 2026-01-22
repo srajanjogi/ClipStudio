@@ -4,6 +4,7 @@ import { dirname, join } from 'path';
 import { registerCutVideoHandlers, cleanupCutVideoTempFiles } from './cutVideo.js';
 import { registerMergeVideosHandlers, cleanupMergeVideosTempFiles } from './mergeVideos.js';
 import { registerSpeedChangeHandlers, cleanupSpeedTempFiles } from './speedChange.js';
+import { registerAddAudioHandlers, cleanupAddAudioTempFiles } from './addAudio.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -111,11 +112,15 @@ registerMergeVideosHandlers(ipcMain, dialog);
 // Register IPC handlers for the Change Playback Speed feature
 registerSpeedChangeHandlers(ipcMain, dialog);
 
+// Register IPC handlers for the Add Audio feature
+registerAddAudioHandlers(ipcMain, dialog);
+
 // Cleanup all temp files on app exit
 app.on('before-quit', () => {
   cleanupCutVideoTempFiles();
   cleanupMergeVideosTempFiles();
   cleanupSpeedTempFiles();
+  cleanupAddAudioTempFiles();
 });
 
 app.whenReady().then(() => {

@@ -84,5 +84,46 @@ contextBridge.exposeInMainWorld('electronAPI', {
    * options: { filePath: string }
    */
   cleanupSpeedPreviewVideo: (options) => ipcRenderer.invoke('cleanup-speed-preview-video', options),
+
+  /**
+   * Open a native file dialog to select an audio file.
+   * Returns a promise that resolves with { canceled: boolean, filePath?: string }.
+   */
+  selectAudioFile: () => ipcRenderer.invoke('select-audio-file'),
+
+  /**
+   * Get audio metadata (duration, sample rate, etc.)
+   * options: { audioPath: string }
+   * Returns a promise that resolves with { duration?: number, durationFormatted?: string, sampleRate?: number, channels?: number, bitrate?: number, error?: string }.
+   */
+  getAudioMetadata: (options) => ipcRenderer.invoke('get-audio-metadata', options),
+
+  /**
+   * Generate waveform data from audio file for visualization.
+   * options: { audioPath: string, samples?: number }
+   * Returns a promise that resolves with { waveform?: number[], error?: string }.
+   */
+  generateAudioWaveform: (options) => ipcRenderer.invoke('generate-audio-waveform', options),
+
+  /**
+   * Export video with added audio track.
+   * options: { videoPath: string, audioPath: string, volume: number, audioStart: string, audioEnd: string, loopAudio: boolean, placementMode: string }
+   * Returns a promise that resolves with { canceled?: boolean, filePath?: string, error?: string }.
+   */
+  exportAddAudio: (options) => ipcRenderer.invoke('export-add-audio', options),
+
+  /**
+   * Create a temporary preview video with added audio.
+   * options: { videoPath: string, audioPath: string, volume: number, audioStart: string, audioEnd: string, loopAudio: boolean, placementMode: string }
+   * Returns a promise that resolves with { filePath?: string, error?: string }.
+   */
+  createPreviewAddAudio: (options) => ipcRenderer.invoke('create-preview-add-audio', options),
+
+  /**
+   * Clean up a temporary preview video file with audio.
+   * options: { filePath: string }
+   * Returns a promise that resolves with { success: boolean, error?: string }.
+   */
+  cleanupAddAudioPreview: (options) => ipcRenderer.invoke('cleanup-add-audio-preview', options),
 });
 
